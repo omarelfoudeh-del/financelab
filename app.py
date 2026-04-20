@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 
 st.set_page_config(
     page_title="Loan Calculator",
@@ -32,7 +33,7 @@ annual_rate = st.number_input(
 years = st.number_input(
     "Loan term (years)",
     min_value=1,
-    value=20,
+    value=5,
     step=1
 )
 
@@ -68,7 +69,6 @@ for month in range(1, months + 1):
     interest_payment = balance * monthly_rate if monthly_rate > 0 else 0
     principal_payment = monthly_payment - interest_payment
 
-    # protect final row from tiny floating issues
     if principal_payment > balance:
         principal_payment = balance
 
@@ -76,9 +76,16 @@ for month in range(1, months + 1):
     if balance < 0:
         balance = 0
 
+    year_number = ((month - 1) // 12) + 1
+    month_in_year = ((month - 1) % 12) + 1
+    period_label = f"Y{year_number}-M{month_in_year}"
+
     schedule.append(
         {
             "Month": month,
+            "Year": year_number,
+            "Month in Year": month_in_year,
+            "Period": period_label,
             "Payment": round(monthly_payment, 2),
             "Principal": round(principal_payment, 2),
             "Interest": round(interest_payment, 2),
@@ -88,17 +95,81 @@ for month in range(1, months + 1):
 
 df = pd.DataFrame(schedule)
 
-# ---------- Charts ----------
+# ---------- Balance chart ----------
 st.subheader("Balance over time")
-st.line_chart(df.set_index("Month")["Balance"], use_container_width=True)
+balance_chart = alt.Chart(df).mark_line(point=True).encode(
+    x=alt.X(
+        "Period:N",
+        sort=None,
+        axis=alt.Axis(title="Time", labelAngle=-45)
+    ),
+    y=alt.Y("Balance:Q", title="Remaining balance"),
+    tooltip=["Period", "Balance"]
+).properties(height=350)
 
-st.subheader("Principal vs interest")
-st.line_chart(
-    df.set_index("Month")[["Principal", "Interest"]],
-    use_container_width=True
+st.altair_chart(balance_chart, use_container_width=True)
+
+# ---------- Principal vs Interest stacked bar ----------
+st.subheader("Payment breakdown")
+
+chart_df = df[["Period", "Principal", "Interest"]].melt(
+    id_vars="Period",
+    value_vars=["Principal", "Interest"],
+    var_name="Type",
+    value_name="Amount"
 )
 
-# ---------- Optional table ----------
+bar_chart = alt.Chart(chart_df).mark_bar().encode(
+    x=alt.X(
+        "Period:N",
+        sort=None,
+        axis=alt.Axis(title="Time (Year-Month)", labelAngle=-45)
+    ),
+    y=alt.Y("Amount:Q", title="Payment amount", stack="zero"),
+    color=alt.Color(
+        "Type:N",
+        scale=alt.Scale(
+            domain=["Principal", "Interest"],
+            range=["#4F81BD", "#C0504D"]
+        )
+    ),
+    tooltip=["Period", "Type", "Amount"]
+).properties(height=350)
+
+st.altair_chart(bar_chart, use_container_width=True)
+
+# ---------- Yearly summary ----------
+st.subheader("Yearly view")
+
+yearly_df = df.groupby("Year", as_index=False).agg({
+    "Principal": "sum",
+    "Interest": "sum",
+    "Balance": "last"
+})
+
+yearly_chart_df = yearly_df.melt(
+    id_vars="Year",
+    value_vars=["Principal", "Interest"],
+    var_name="Type",
+    value_name="Amount"
+)
+
+yearly_bar_chart = alt.Chart(yearly_chart_df).mark_bar().encode(
+    x=alt.X("Year:O", title="Year"),
+    y=alt.Y("Amount:Q", title="Total paid in year", stack="zero"),
+    color=alt.Color(
+        "Type:N",
+        scale=alt.Scale(
+            domain=["Principal", "Interest"],
+            range=["#4F81BD", "#C0504D"]
+        )
+    ),
+    tooltip=["Year", "Type", "Amount"]
+).properties(height=350)
+
+st.altair_chart(yearly_bar_chart, use_container_width=True)
+
+# ---------- Optional schedule ----------
 if show_schedule:
     st.subheader("Amortization schedule")
     st.dataframe(df, use_container_width=True, hide_index=True)
