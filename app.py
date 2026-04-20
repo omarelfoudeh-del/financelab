@@ -167,9 +167,6 @@ elif st.session_state.page == "loan":
     col2.metric("Total payment", currency_fmt(total_payment))
     col3.metric("Total interest", currency_fmt(total_interest))
 
-    # Common year markers for monthly charts
-    year_marker_months = [(year - 1) * 12 + 1 for year in yearly_df["Year"].tolist()]
-
     # -----------------------------
     # Chart 1: Balance over time
     # -----------------------------
@@ -180,17 +177,15 @@ elif st.session_state.page == "loan":
         .mark_line(point=True)
         .encode(
             x=alt.X(
-                "Month:Q",
+                "Period:N",
                 title="Time",
-                scale=alt.Scale(domain=[1, len(df)]),
-                axis=alt.Axis(
-                    values=year_marker_months,
-                    labelExpr="'Y' + floor((datum.value - 1)/12 + 1)",
-                    labelAngle=0,
-                    grid=False
-                )
+                sort=None,
+                axis=alt.Axis(labelAngle=-45)
             ),
-            y=alt.Y("Balance:Q", title="Remaining balance"),
+            y=alt.Y(
+                "Balance:Q",
+                title="Remaining balance"
+            ),
             tooltip=[
                 alt.Tooltip("Period:N", title="Period"),
                 alt.Tooltip("Balance:Q", title="Balance", format=",.2f")
@@ -206,29 +201,29 @@ elif st.session_state.page == "loan":
     # -----------------------------
     st.subheader("Payment breakdown")
 
-    monthly_chart_df = df[["Month", "Period", "Principal", "Interest"]].melt(
-        id_vars=["Month", "Period"],
+    monthly_chart_df = df[["Period", "Principal", "Interest"]].melt(
+        id_vars=["Period"],
         value_vars=["Principal", "Interest"],
         var_name="Type",
         value_name="Amount"
     )
 
-    payment_breakdown_chart = (
+    payment_chart = (
         alt.Chart(monthly_chart_df)
-        .mark_bar()
+        .mark_bar(size=8)
         .encode(
             x=alt.X(
-                "Month:Q",
+                "Period:N",
                 title="Time",
-                scale=alt.Scale(domain=[1, len(df)]),
-                axis=alt.Axis(
-                    values=year_marker_months,
-                    labelExpr="'Y' + floor((datum.value - 1)/12 + 1)",
-                    labelAngle=0,
-                    grid=False
-                )
+                sort=None,
+                axis=alt.Axis(labelAngle=-45)
             ),
-            y=alt.Y("Amount:Q", title="Payment amount", stack="zero"),
+            y=alt.Y(
+                "Amount:Q",
+                title="Payment",
+                stack="zero",
+                scale=alt.Scale(zero=True)
+            ),
             color=alt.Color(
                 "Type:N",
                 scale=alt.Scale(
@@ -243,10 +238,10 @@ elif st.session_state.page == "loan":
                 alt.Tooltip("Amount:Q", title="Amount", format=",.2f")
             ]
         )
-        .properties(height=320)
+        .properties(height=300)
     )
 
-    st.altair_chart(payment_breakdown_chart, use_container_width=True)
+    st.altair_chart(payment_chart, use_container_width=True)
 
     # -----------------------------
     # Chart 3: Yearly view
@@ -254,28 +249,27 @@ elif st.session_state.page == "loan":
     st.subheader("Yearly view")
 
     yearly_chart_df = yearly_df.melt(
-        id_vars=["Year", "YearLabel"],
+        id_vars=["YearLabel"],
         value_vars=["Principal", "Interest"],
         var_name="Type",
         value_name="Amount"
     )
 
-    yearly_breakdown_chart = (
+    yearly_chart = (
         alt.Chart(yearly_chart_df)
-        .mark_bar()
+        .mark_bar(size=40)
         .encode(
             x=alt.X(
-                "Year:Q",
-                title="Time",
-                scale=alt.Scale(domain=[1, int(yearly_df["Year"].max())]),
-                axis=alt.Axis(
-                    values=yearly_df["Year"].tolist(),
-                    labelExpr="'Y' + datum.value",
-                    labelAngle=0,
-                    grid=False
-                )
+                "YearLabel:N",
+                title="Year",
+                sort=None
             ),
-            y=alt.Y("Amount:Q", title="Total paid in year", stack="zero"),
+            y=alt.Y(
+                "Amount:Q",
+                title="Total paid",
+                stack="zero",
+                scale=alt.Scale(zero=True)
+            ),
             color=alt.Color(
                 "Type:N",
                 scale=alt.Scale(
@@ -290,10 +284,10 @@ elif st.session_state.page == "loan":
                 alt.Tooltip("Amount:Q", title="Amount", format=",.2f")
             ]
         )
-        .properties(height=320)
+        .properties(height=300)
     )
 
-    st.altair_chart(yearly_breakdown_chart, use_container_width=True)
+    st.altair_chart(yearly_chart, use_container_width=True)
 
     # -----------------------------
     # Schedule table
