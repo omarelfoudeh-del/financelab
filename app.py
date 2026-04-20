@@ -10,9 +10,6 @@ st.set_page_config(
     layout="centered"
 )
 
-# -----------------------------
-# Helpers
-# -----------------------------
 def currency_fmt(x):
     return f"${x:,.2f}"
 
@@ -91,15 +88,9 @@ def build_schedule(loan_amount, annual_rate, years):
 def go_to(page_name):
     st.session_state.page = page_name
 
-# -----------------------------
-# Session state
-# -----------------------------
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
-# -----------------------------
-# Home page
-# -----------------------------
 if st.session_state.page == "home":
     st.title("🧪 Welcome to Finance Laboratory")
     st.subheader("Explore our interactive financial tools")
@@ -116,9 +107,6 @@ if st.session_state.page == "home":
     st.markdown("### Available tools")
     st.button("Loan Calculator", use_container_width=True, on_click=go_to, args=("loan",))
 
-# -----------------------------
-# Loan calculator page
-# -----------------------------
 elif st.session_state.page == "loan":
     top_left, top_right = st.columns([1, 4])
 
@@ -167,11 +155,7 @@ elif st.session_state.page == "loan":
     col2.metric("Total payment", currency_fmt(total_payment))
     col3.metric("Total interest", currency_fmt(total_interest))
 
-    # -----------------------------
-    # Chart 1: Balance over time
-    # -----------------------------
     st.subheader("Balance over time")
-
     balance_chart = (
         alt.Chart(df)
         .mark_line(point=True)
@@ -196,27 +180,29 @@ elif st.session_state.page == "loan":
 
     st.altair_chart(balance_chart, use_container_width=True)
 
-    # -----------------------------
-    # Chart 2: Payment breakdown
-    # -----------------------------
     st.subheader("Payment breakdown")
 
-    monthly_chart_df = df[["Period", "Principal", "Interest"]].melt(
-        id_vars=["Period"],
+    monthly_chart_df = df[["Month", "Principal", "Interest"]].melt(
+        id_vars=["Month"],
         value_vars=["Principal", "Interest"],
         var_name="Type",
         value_name="Amount"
     )
+
+    year_positions = [(y - 1) * 12 + 1 for y in yearly_df["Year"]]
 
     payment_chart = (
         alt.Chart(monthly_chart_df)
         .mark_bar(size=8)
         .encode(
             x=alt.X(
-                "Period:N",
+                "Month:Q",
                 title="Time",
-                sort=None,
-                axis=alt.Axis(labelAngle=-45)
+                axis=alt.Axis(
+                    values=year_positions,
+                    labelExpr="'Y' + floor((datum.value - 1)/12 + 1)",
+                    labelAngle=0
+                )
             ),
             y=alt.Y(
                 "Amount:Q",
@@ -233,7 +219,7 @@ elif st.session_state.page == "loan":
                 legend=alt.Legend(title="")
             ),
             tooltip=[
-                alt.Tooltip("Period:N", title="Period"),
+                alt.Tooltip("Month:Q", title="Month"),
                 alt.Tooltip("Type:N", title="Type"),
                 alt.Tooltip("Amount:Q", title="Amount", format=",.2f")
             ]
@@ -243,9 +229,6 @@ elif st.session_state.page == "loan":
 
     st.altair_chart(payment_chart, use_container_width=True)
 
-    # -----------------------------
-    # Chart 3: Yearly view
-    # -----------------------------
     st.subheader("Yearly view")
 
     yearly_chart_df = yearly_df.melt(
@@ -289,9 +272,6 @@ elif st.session_state.page == "loan":
 
     st.altair_chart(yearly_chart, use_container_width=True)
 
-    # -----------------------------
-    # Schedule table
-    # -----------------------------
     if show_schedule:
         st.subheader("Amortization schedule")
 
